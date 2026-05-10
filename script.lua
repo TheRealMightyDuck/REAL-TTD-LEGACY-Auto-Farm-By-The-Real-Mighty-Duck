@@ -1,5 +1,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local PathfindingService = game:GetService("PathfindingService")
 
 local Player = Players.LocalPlayer
 
@@ -94,17 +95,15 @@ local function handleTask(taskData)
 
 	local troopsFolder = workspace:WaitForChild("Troops")
 
-	-- 📍 PLACE
 	if taskData.position then
 
-		-- store current troops BEFORE placing
 		local existingTroops = {}
 
 		for _, troop in ipairs(troopsFolder:GetChildren()) do
 			existingTroops[troop] = true
 		end
 
-		-- place troop
+		-- PLACE
 		fireRemote({
 			{
 				"\226\129\130\022",
@@ -114,7 +113,7 @@ local function handleTask(taskData)
 			}
 		})
 
-		-- detect NEW troop instance
+		-- FIND NEW TROOP
 		task.spawn(function()
 
 			local foundTroop
@@ -146,52 +145,52 @@ local function handleTask(taskData)
 				warn("Could not find troop:", taskData.name)
 			end
 		end)
-
-		return
 	end
 end
 
--- 🚶 WALK TO TELEPORT SPOT
+-- 🚶 PATHFIND TO TELEPORT
 local function walkToLobby()
 
 	local char = Player.Character or Player.CharacterAdded:Wait()
 	local humanoid = char:WaitForChild("Humanoid")
 	local hrp = char:WaitForChild("HumanoidRootPart")
 
-	local targetCFrame = CFrame.new(
-		-129.188828, 5.25753736, 131.552063
+	local targetPosition = Vector3.new(
+		-129.188828,
+		5.25753736,
+		131.552063
 	)
 
-	local targetPosition = targetCFrame.Position
+	local path = PathfindingService:CreatePath({
+		AgentRadius = 2,
+		AgentHeight = 5,
+		AgentCanJump = true,
+		WaypointSpacing = 4
+	})
 
-	humanoid:MoveTo(targetPosition)
+	path:ComputeAsync(hrp.Position, targetPosition)
 
-	local reached = false
+	if path.Status ~= Enum.PathStatus.Success then
+		warn("Path failed")
+		return
+	end
 
-	local connection
-	connection = humanoid.MoveToFinished:Connect(function(success)
-		reached = true
-		connection:Disconnect()
-	end)
+	local waypoints = path:GetWaypoints()
 
-	-- fallback distance checker
-	while not reached do
+	for _, waypoint in ipairs(waypoints) do
 
-		if not hrp.Parent then
-			break
+		if waypoint.Action == Enum.PathWaypointAction.Jump then
+			humanoid.Jump = true
 		end
 
-		local distance = (hrp.Position - targetPosition).Magnitude
+		humanoid:MoveTo(waypoint.Position)
 
-		if distance <= 6 then
-			reached = true
-			if connection then
-				connection:Disconnect()
-			end
-			break
+		local reached = humanoid.MoveToFinished:Wait()
+
+		if not reached then
+			warn("Failed reaching waypoint")
+			return
 		end
-
-		task.wait(0.1)
 	end
 
 	print("Reached teleport spot")
@@ -219,7 +218,7 @@ local routeExists = workspace:FindFirstChild("Route")
 
 if (not correctPlace) and (not routeExists) then
 
-	print("Walking to teleport")
+	print("Pathfinding to teleport")
 
 	task.spawn(function()
 		walkToLobby()
