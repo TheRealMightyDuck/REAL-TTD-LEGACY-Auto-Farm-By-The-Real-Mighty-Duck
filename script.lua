@@ -8,16 +8,14 @@ local function fireRemote(args)
 	ReplicatedStorage
 		:WaitForChild("NetworkingContainer")
 		:WaitForChild("DataRemote")
-		:FireServer(unpack(args))
+		:FireServer(args)
 end
 
 -- ⏭️ SKIP
 local function fireSkip()
 	fireRemote({
 		{
-			{
-				"\226\129\130("
-			}
+			"\226\129\130("
 		}
 	})
 end
@@ -40,16 +38,16 @@ end
 -- 🧠 QUEUE HANDLER
 local function handleTask(taskData)
 
+	local troopsFolder = workspace:WaitForChild("Troops")
+
 	-- 📍 PLACE
 	if taskData.position then
 		fireRemote({
 			{
-				{
-					"\226\129\130\022",
-					taskData.name,
-					taskData.position,
-					taskData.extra
-				}
+				"\226\129\130\022",
+				taskData.name,
+				taskData.position,
+				taskData.extra
 			}
 		})
 		return
@@ -57,12 +55,13 @@ local function handleTask(taskData)
 
 	-- ⬆️ UPGRADE
 	if taskData.action == "Upgrade" then
+		local unit = troopsFolder:FindFirstChild(taskData.name)
+		if not unit then return end
+
 		fireRemote({
 			{
-				{
-					"\226\129\130#",
-					workspace:WaitForChild("Troops"):WaitForChild(taskData.name)
-				}
+				"\226\129\130#",
+				unit
 			}
 		})
 	end
@@ -70,7 +69,7 @@ end
 
 -- 📦 CHECKS
 local correctPlace = (game.PlaceId == 13775256536)
-local routeExists = game.Workspace:FindFirstChild("Route")
+local routeExists = workspace:FindFirstChild("Route")
 
 if (not correctPlace) and (not routeExists) then
 	print("Teleporting")
@@ -88,10 +87,10 @@ if (not correctPlace) and (not routeExists) then
 else
 	print("Running system")
 
-	-- 📦 QUEUE (FIXED)
+	-- 📦 QUEUE
 	local Queue = {
 		{delay = 15, name = "SpeakerHelicopter",
-			position = vector.create(-75.74588012695312, 2.20206356048584, 97.06993865966797),
+			position = Vector3.new(-77.65982055664062, 2.3456802368164062, 95.55828857421875),
 			extra = 1},
 		{delay = 40, name = "SpeakerHelicopter", action = "Upgrade"},
 	}
@@ -103,7 +102,7 @@ else
 		end)
 	end
 
-	-- ⏱️ SKIP START
+	-- ⏱️ START SKIP LOOP
 	task.delay(20, function()
 		startSkipLoop()
 	end)
