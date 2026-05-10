@@ -121,7 +121,7 @@ if (not correctPlace) and (not routeExists) then
 		-0.312460154, 9.48990575e-08, -0.949930847
 	)
 	
-	task.delay(5, function()
+	task.delay(1, function()
 		local args = {
 			{
 				{
