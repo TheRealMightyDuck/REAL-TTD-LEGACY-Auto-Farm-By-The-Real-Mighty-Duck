@@ -35,7 +35,7 @@ local function startSkipLoop()
 	end)
 end
 
--- 🧠 MAX LEVEL CONFIG (your system)
+-- 🧠 MAX LEVEL CONFIG
 local MaxLevelTroops = {
 	SpeakerHelicopter = 4,
 }
@@ -45,17 +45,8 @@ local orderedTroops = {}
 local troopIndex = 0
 local currentTroop = 1
 
-local function getLevel(unit)
-	local lvl = unit:FindFirstChild("TroopLevel")
-	if lvl and lvl:IsA("IntValue") then
-		return lvl.Value
-	end
-	return 1
-end
-
-local function getMaxLevel(unit)
-	return MaxLevelTroops[unit.Name] or math.huge
-end
+-- 🔥 LOCAL PROGRESS TRACKER (FIX)
+local troopProgress = {}
 
 local function addTroop(unit)
 	if not unit then return end
@@ -67,10 +58,13 @@ local function addTroop(unit)
 		lastUpgrade = 0
 	}
 
+	-- init progress
+	troopProgress[unit] = 1
+
 	print("Added troop #", troopIndex, unit.Name)
 end
 
--- ⚡ ORDERED UPGRADE LOOP (FIXED CORE)
+-- ⚡ FIXED ORDERED UPGRADE LOOP
 task.spawn(function()
 
 	while true do
@@ -82,8 +76,10 @@ task.spawn(function()
 
 			if unit and unit.Parent then
 
-				local level = getLevel(unit)
-				local maxLevel = getMaxLevel(unit)
+				local name = unit.Name
+				local maxLevel = MaxLevelTroops[name] or math.huge
+
+				local level = troopProgress[unit] or 1
 
 				-- 🔥 upgrade spam
 				if tick() - data.lastUpgrade >= 0.15 then
@@ -95,6 +91,10 @@ task.spawn(function()
 							unit
 						}
 					})
+
+					-- 💡 assume upgrade succeeds instantly
+					troopProgress[unit] = level + 1
+					level += 1
 				end
 
 				-- ✅ MOVE TO NEXT TROOP WHEN MAXED
@@ -104,7 +104,7 @@ task.spawn(function()
 				end
 
 			else
-				-- fallback if unit removed
+				-- fallback if unit disappears
 				currentTroop += 1
 			end
 		end
