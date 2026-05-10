@@ -88,13 +88,11 @@ if (not correctPlace) and (not routeExists) then
 else
 	print("Running system")
 
-	-- 📦 QUEUE (CLEAN + SIMPLE)
+	-- 📦 QUEUE (FIXED)
 	local Queue = {
 		{delay = 15, name = "SpeakerHelicopter",
-			position = vector.create(-75.74588012695312, 2.20206356048584, 97.06993865966797),
-			extra = 1
-		},
-
+			position = Vector3.new(-75.74588012695312, 2.20206356048584, 97.06993865966797),
+			extra = 1},
 		{delay = 40, name = "SpeakerHelicopter", action = "Upgrade"},
 	}
 
