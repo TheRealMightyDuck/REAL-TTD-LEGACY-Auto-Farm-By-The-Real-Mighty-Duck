@@ -114,7 +114,7 @@ if (not correctPlace) and (not routeExists) then
 	local char = Player.Character or Player.CharacterAdded:Wait()
 	local hrp = char:WaitForChild("HumanoidRootPart")
 	
-	task.delay(1, function()
+	task.delay(8, function()
 		local args = {
 			{
 				{
