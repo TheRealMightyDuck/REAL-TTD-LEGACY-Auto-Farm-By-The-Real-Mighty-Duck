@@ -3,6 +3,33 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Player = Players.LocalPlayer
 
+-- 🖥️ ACTIVATED GUI (ADDED INTO SYSTEM)
+task.spawn(function()
+	local playerGui = Player:WaitForChild("PlayerGui")
+
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "StatusGui"
+	screenGui.ResetOnSpawn = false
+	screenGui.Parent = playerGui
+
+	local label = Instance.new("TextLabel")
+	label.Parent = screenGui
+	label.Size = UDim2.new(0, 200, 0, 40)
+	label.Position = UDim2.new(1, -210, 0, 10)
+	label.BackgroundTransparency = 0.3
+	label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	label.TextColor3 = Color3.fromRGB(0, 255, 0)
+	label.TextScaled = true
+	label.Font = Enum.Font.SourceSansBold
+	label.Text = "Activated"
+	label.TextTransparency = 1
+
+	for i = 1, 10 do
+		label.TextTransparency -= 0.1
+		task.wait(0.03)
+	end
+end)
+
 -- 📡 REMOTE HELPER
 local function fireRemote(args)
 	ReplicatedStorage
@@ -35,7 +62,7 @@ local function startSkipLoop()
 	end)
 end
 
--- 🧠 MAX LEVEL CONFIG (your system)
+-- 🧠 MAX LEVEL CONFIG
 local MaxLevelTroops = {
 	SpeakerHelicopter = 4,
 }
@@ -70,7 +97,7 @@ local function addTroop(unit)
 	print("Added troop #", troopIndex, unit.Name)
 end
 
--- ⚡ ORDERED UPGRADE LOOP (FIXED CORE)
+-- ⚡ ORDERED UPGRADE LOOP
 task.spawn(function()
 
 	while true do
@@ -85,7 +112,6 @@ task.spawn(function()
 				local level = getLevel(unit)
 				local maxLevel = getMaxLevel(unit)
 
-				-- 🔥 upgrade spam
 				if tick() - data.lastUpgrade >= 0.15 then
 					data.lastUpgrade = tick()
 
@@ -97,14 +123,12 @@ task.spawn(function()
 					})
 				end
 
-				-- ✅ MOVE TO NEXT TROOP WHEN MAXED
 				if level >= maxLevel then
 					print("Maxed troop #", currentTroop, unit.Name)
 					currentTroop += 1
 				end
 
 			else
-				-- fallback if unit removed
 				currentTroop += 1
 			end
 		end
@@ -118,7 +142,6 @@ local function handleTask(taskData)
 
 	local troopsFolder = workspace:WaitForChild("Troops")
 
-	-- 📍 PLACE
 	if taskData.position then
 
 		local existing = {}
@@ -136,7 +159,6 @@ local function handleTask(taskData)
 			}
 		})
 
-		-- detect new troop instance
 		task.spawn(function()
 
 			local found
@@ -169,7 +191,6 @@ local correctPlace = (game.PlaceId == 13775256536)
 local routeExists = workspace:FindFirstChild("Route")
 
 if (not correctPlace) and (not routeExists) then
-
 	print("Teleporting")
 
 	local char = Player.Character or Player.CharacterAdded:Wait()
@@ -182,7 +203,7 @@ if (not correctPlace) and (not routeExists) then
 		-0.312460154, 9.48990575e-08, -0.949930847
 	)
 
-	task.delay(2, function()
+	task.delay(1, function()
 		local args = {
 			{
 				{
@@ -207,21 +228,21 @@ else
 		{
 			delay = 15,
 			name = "SpeakerHelicopter",
-			position = Vector3.new(-77.6598, 2.3456, 95.5582),
+			position = Vector3.new(-77.65, 2.34, 95.55),
 			extra = 1
 		},
 
 		{
 			delay = 61,
 			name = "SpeakerHelicopter",
-			position = Vector3.new(-69.3424, 2.3456, 89.4919),
+			position = Vector3.new(-69.34, 2.34, 89.49),
 			extra = 1
 		}
 	}
 
-	for _, taskData in ipairs(Queue) do
-		task.delay(taskData.delay, function()
-			handleTask(taskData)
+	for _, t in ipairs(Queue) do
+		task.delay(t.delay, function()
+			handleTask(t)
 		end)
 	end
 
