@@ -93,7 +93,7 @@ else
 			position = Vector3.new(-77.65982055664062, 2.3456802368164062, 95.55828857421875),
 			extra = 1},
 		{delay = 40, name = "SpeakerHelicopter", action = "Upgrade"},
-		{delay = 80, name = "SpeakerHelicopter", action = "Upgrade"},
+		{delay = 81, name = "SpeakerHelicopter", action = "Upgrade"},
 		{delay = 122, name = "SpeakerHelicopter", action = "Upgrade"},
 	}
 
@@ -105,7 +105,7 @@ else
 	end
 
 	-- ⏱️ START SKIP LOOP
-	task.delay(16, function()
+	task.delay(20, function()
 		startSkipLoop()
 	end)
 end
