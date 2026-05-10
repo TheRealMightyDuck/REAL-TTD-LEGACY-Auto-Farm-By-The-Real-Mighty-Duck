@@ -1,6 +1,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local PathfindingService = game:GetService("PathfindingService")
+local RunService = game:GetService("RunService")
 
 local Player = Players.LocalPlayer
 
@@ -36,7 +36,7 @@ local function startSkipLoop()
 	end)
 end
 
--- 🧠 TROOP TRACKING
+-- 🧠 TROOP SYSTEM
 local trackedTroops = {}
 local troopQueue = {}
 
@@ -56,15 +56,12 @@ end
 
 -- ⚡ ORDERED UPGRADE LOOP
 task.spawn(function()
-
-	local currentIndex = 1
+	local i = 1
 
 	while true do
-
-		local data = troopQueue[currentIndex]
+		local data = troopQueue[i]
 
 		if data then
-
 			local unit = data.unit
 
 			if unit and unit.Parent then
@@ -81,8 +78,8 @@ task.spawn(function()
 				end
 
 			else
-				print("Finished troop:", currentIndex)
-				currentIndex += 1
+				print("Finished troop:", i)
+				i += 1
 			end
 		end
 
@@ -90,20 +87,19 @@ task.spawn(function()
 	end
 end)
 
--- 🧠 PLACE + TRACK
+-- 🧠 PLACE + DETECT NEW INSTANCE
 local function handleTask(taskData)
 
 	local troopsFolder = workspace:WaitForChild("Troops")
 
 	if taskData.position then
 
-		local existingTroops = {}
+		local existing = {}
 
-		for _, troop in ipairs(troopsFolder:GetChildren()) do
-			existingTroops[troop] = true
+		for _, t in ipairs(troopsFolder:GetChildren()) do
+			existing[t] = true
 		end
 
-		-- PLACE
 		fireRemote({
 			{
 				"\226\129\130\022",
@@ -113,87 +109,82 @@ local function handleTask(taskData)
 			}
 		})
 
-		-- FIND NEW TROOP
 		task.spawn(function()
 
-			local foundTroop
+			local found
 			local start = tick()
 
 			while tick() - start < 5 do
-
-				for _, troop in ipairs(troopsFolder:GetChildren()) do
-
-					if troop.Name == taskData.name then
-						if not existingTroops[troop] then
-							foundTroop = troop
-							break
-						end
+				for _, t in ipairs(troopsFolder:GetChildren()) do
+					if t.Name == taskData.name and not existing[t] then
+						found = t
+						break
 					end
 				end
 
-				if foundTroop then
-					break
-				end
-
+				if found then break end
 				task.wait(0.1)
 			end
 
-			if foundTroop then
-				addTroop(foundTroop)
-				print("Tracking:", foundTroop:GetFullName())
+			if found then
+				addTroop(found)
+				print("Tracking:", found.Name)
 			else
-				warn("Could not find troop:", taskData.name)
+				warn("Troop not found:", taskData.name)
 			end
 		end)
 	end
 end
 
--- 🚶 PATHFIND TO TELEPORT
+-- 🚶 SMOOTH WALK (NO TELEPORT / NO PATHFIND)
 local function walkToLobby()
 
 	local char = Player.Character or Player.CharacterAdded:Wait()
-	local humanoid = char:WaitForChild("Humanoid")
 	local hrp = char:WaitForChild("HumanoidRootPart")
 
-	local targetPosition = Vector3.new(
+	local target = Vector3.new(
 		-129.188828,
 		5.25753736,
 		131.552063
 	)
 
-	local path = PathfindingService:CreatePath({
-		AgentRadius = 2,
-		AgentHeight = 5,
-		AgentCanJump = true,
-		WaypointSpacing = 4
-	})
+	local connection
 
-	path:ComputeAsync(hrp.Position, targetPosition)
+	connection = RunService.RenderStepped:Connect(function()
 
-	if path.Status ~= Enum.PathStatus.Success then
-		warn("Path failed")
-		return
-	end
-
-	local waypoints = path:GetWaypoints()
-
-	for _, waypoint in ipairs(waypoints) do
-
-		if waypoint.Action == Enum.PathWaypointAction.Jump then
-			humanoid.Jump = true
-		end
-
-		humanoid:MoveTo(waypoint.Position)
-
-		local reached = humanoid.MoveToFinished:Wait()
-
-		if not reached then
-			warn("Failed reaching waypoint")
+		if not hrp.Parent then
+			connection:Disconnect()
 			return
 		end
-	end
 
-	print("Reached teleport spot")
+		local offset = target - hrp.Position
+		local dist = offset.Magnitude
+
+		if dist < 6 then
+			connection:Disconnect()
+			print("Reached spot")
+			return
+		end
+
+		local dir = offset.Unit
+
+		-- obstacle avoidance
+		local rayParams = RaycastParams.new()
+		rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+		rayParams.FilterDescendantsInstances = {char}
+
+		local hit = workspace:Raycast(hrp.Position, dir * 5, rayParams)
+
+		if hit then
+			dir = (dir + hit.Normal * 1.8).Unit
+		end
+
+		hrp.AssemblyLinearVelocity = dir * 18
+	end)
+
+	while connection.Connected do
+		task.wait(0.1)
+	end
 
 	task.wait(1)
 
@@ -218,7 +209,7 @@ local routeExists = workspace:FindFirstChild("Route")
 
 if (not correctPlace) and (not routeExists) then
 
-	print("Pathfinding to teleport")
+	print("Walking (no teleport)")
 
 	task.spawn(function()
 		walkToLobby()
@@ -228,40 +219,29 @@ else
 
 	print("Running system")
 
-	-- 📦 QUEUE
 	local Queue = {
 
 		{
 			delay = 15,
 			name = "SpeakerHelicopter",
-			position = Vector3.new(
-				-77.65982055664062,
-				2.3456802368164062,
-				95.55828857421875
-			),
+			position = Vector3.new(-77.65, 2.34, 95.55),
 			extra = 1
 		},
 
 		{
 			delay = 61,
 			name = "SpeakerHelicopter",
-			position = Vector3.new(
-				-69.34246063232422,
-				2.3456802368164062,
-				89.49198150634766
-			),
+			position = Vector3.new(-69.34, 2.34, 89.49),
 			extra = 1
 		}
 	}
 
-	-- 🚀 RUN QUEUE
-	for _, taskData in ipairs(Queue) do
-		task.delay(taskData.delay, function()
-			handleTask(taskData)
+	for _, t in ipairs(Queue) do
+		task.delay(t.delay, function()
+			handleTask(t)
 		end)
 	end
 
-	-- ⏱️ START SKIP LOOP
 	task.delay(20, function()
 		startSkipLoop()
 	end)
