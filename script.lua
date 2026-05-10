@@ -160,7 +160,7 @@ local function walkToLobby()
 		local offset = target - hrp.Position
 		local dist = offset.Magnitude
 
-		if dist < 6 then
+		if dist < 3 then
 			connection:Disconnect()
 			print("Reached spot")
 			return
@@ -170,7 +170,7 @@ local function walkToLobby()
 
 		-- obstacle avoidance
 		local rayParams = RaycastParams.new()
-		rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+		rayParams.FilterType = Enum.RaycastFilterType.Exclude
 		rayParams.FilterDescendantsInstances = {char}
 
 		local hit = workspace:Raycast(hrp.Position, dir * 5, rayParams)
@@ -179,7 +179,7 @@ local function walkToLobby()
 			dir = (dir + hit.Normal * 1.8).Unit
 		end
 
-		hrp.AssemblyLinearVelocity = dir * 18
+		hrp.AssemblyLinearVelocity = dir * 30
 	end)
 
 	while connection.Connected do
