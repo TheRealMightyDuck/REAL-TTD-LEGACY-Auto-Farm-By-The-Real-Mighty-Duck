@@ -129,6 +129,11 @@ else
 		{delay = 15, name = "SpeakerHelicopter",
 			position = Vector3.new(-77.65982055664062, 2.3456802368164062, 95.55828857421875),
 			extra = 1
+		},
+		
+		{delay = 35, name = "SpeakerHelicopter",
+			position = Vector3.new(-69.34246063232422, 2.3456802368164062, 89.49198150634766),
+			extra = 1
 		}
 	}
 
