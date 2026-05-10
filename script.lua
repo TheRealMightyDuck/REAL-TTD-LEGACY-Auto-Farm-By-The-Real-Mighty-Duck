@@ -48,7 +48,7 @@ local function handleTask(taskData)
 					"\226\129\130\022",
 					taskData.name,
 					taskData.position,
-					taskData.slot
+					taskData.extra
 				}
 			}
 		})
@@ -92,7 +92,7 @@ else
 	local Queue = {
 		{delay = 15, name = "SpeakerHelicopter",
 			position = vector.create(-75.74588012695312, 2.20206356048584, 97.06993865966797),
-			3
+			1
 		},
 
 		{delay = 40, name = "SpeakerHelicopter", action = "Upgrade"},
