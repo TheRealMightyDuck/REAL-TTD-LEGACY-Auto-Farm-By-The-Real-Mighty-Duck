@@ -1,6 +1,5 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local Player = Players.LocalPlayer
 
@@ -36,35 +35,37 @@ local function startSkipLoop()
 	end)
 end
 
--- 🧠 TROOP SYSTEM
-local trackedTroops = {}
-local troopQueue = {}
+-- 🧠 ORDERED TROOP SYSTEM (FIX)
+local orderedTroops = {}
+local troopIndex = 0
 
 local function addTroop(unit)
 	if not unit then return end
-	if trackedTroops[unit] then return end
 
-	trackedTroops[unit] = true
+	troopIndex += 1
 
-	table.insert(troopQueue, {
+	orderedTroops[troopIndex] = {
 		unit = unit,
-		lastUpgrade = 0
-	})
+		lastUpgrade = 0,
+		done = false
+	}
 
-	print("Added troop:", unit.Name)
+	print("Added troop #", troopIndex, unit.Name)
 end
 
--- ⚡ ORDERED UPGRADE LOOP
+-- ⚡ ORDERED UPGRADE LOOP (FIXED CORE)
 task.spawn(function()
-	local i = 1
+
+	local current = 1
 
 	while true do
-		local data = troopQueue[i]
+
+		local data = orderedTroops[current]
 
 		if data then
 			local unit = data.unit
 
-			if unit and unit.Parent then
+			if unit and unit.Parent and not data.done then
 
 				if tick() - data.lastUpgrade >= 0.15 then
 					data.lastUpgrade = tick()
@@ -78,8 +79,9 @@ task.spawn(function()
 				end
 
 			else
-				print("Finished troop:", i)
-				i += 1
+				-- move to next troop ONLY when this one is gone/done
+				data.done = true
+				current += 1
 			end
 		end
 
@@ -87,17 +89,17 @@ task.spawn(function()
 	end
 end)
 
--- 🧠 PLACE + DETECT NEW INSTANCE
+-- 🧠 QUEUE HANDLER
 local function handleTask(taskData)
 
 	local troopsFolder = workspace:WaitForChild("Troops")
 
 	if taskData.position then
 
-		local existing = {}
+		local before = {}
 
 		for _, t in ipairs(troopsFolder:GetChildren()) do
-			existing[t] = true
+			before[t] = true
 		end
 
 		fireRemote({
@@ -115,8 +117,9 @@ local function handleTask(taskData)
 			local start = tick()
 
 			while tick() - start < 5 do
+
 				for _, t in ipairs(troopsFolder:GetChildren()) do
-					if t.Name == taskData.name and not existing[t] then
+					if t.Name == taskData.name and not before[t] then
 						found = t
 						break
 					end
@@ -128,7 +131,6 @@ local function handleTask(taskData)
 
 			if found then
 				addTroop(found)
-				print("Tracking:", found.Name)
 			else
 				warn("Troop not found:", taskData.name)
 			end
@@ -136,87 +138,40 @@ local function handleTask(taskData)
 	end
 end
 
--- 🚶 SMOOTH WALK (NO TELEPORT / NO PATHFIND)
-local function walkToLobby()
-
-	local char = Player.Character or Player.CharacterAdded:Wait()
-	local hrp = char:WaitForChild("HumanoidRootPart")
-
-	local target = Vector3.new(
-		-129.188828,
-		5.25753736,
-		131.552063
-	)
-
-	local connection
-
-	connection = RunService.RenderStepped:Connect(function()
-
-		if not hrp.Parent then
-			connection:Disconnect()
-			return
-		end
-
-		local offset = target - hrp.Position
-		local dist = offset.Magnitude
-
-		if dist < 3 then
-			connection:Disconnect()
-			print("Reached spot")
-			return
-		end
-
-		local dir = offset.Unit
-
-		-- obstacle avoidance
-		local rayParams = RaycastParams.new()
-		rayParams.FilterType = Enum.RaycastFilterType.Exclude
-		rayParams.FilterDescendantsInstances = {char}
-
-		local hit = workspace:Raycast(hrp.Position, dir * 5, rayParams)
-
-		if hit then
-			dir = (dir + hit.Normal * 1.8).Unit
-		end
-
-		hrp.AssemblyLinearVelocity = dir * 30
-	end)
-
-	while connection.Connected do
-		task.wait(0.1)
-	end
-
-	task.wait(1)
-
-	local args = {
-		{
-			{
-				"\226\129\130;",
-				"df63fa61-be10-46bb-83ba-ffc196b317d0"
-			}
-		}
-	}
-
-	ReplicatedStorage
-		:WaitForChild("NetworkingContainer")
-		:WaitForChild("DataRemote")
-		:FireServer(unpack(args))
-end
-
 -- 📦 CHECKS
 local correctPlace = (game.PlaceId == 13775256536)
 local routeExists = workspace:FindFirstChild("Route")
 
 if (not correctPlace) and (not routeExists) then
+	print("Teleporting")
 
-	print("Walking (no teleport)")
+	local char = Player.Character or Player.CharacterAdded:Wait()
+	local hrp = char:WaitForChild("HumanoidRootPart")
 
-	task.spawn(function()
-		walkToLobby()
+	hrp.CFrame = CFrame.new(
+		-129.188828, 5.25753736, 131.552063,
+		-0.949930847, 4.12199519e-08, 0.312460154,
+		6.88082764e-08, 1, 7.72679485e-08,
+		-0.312460154, 9.48990575e-08, -0.949930847
+	)
+
+	task.delay(1, function()
+		local args = {
+			{
+				{
+					"\226\129\130;",
+					"df63fa61-be10-46bb-83ba-ffc196b317d0"
+				}
+			}
+		}
+
+		game:GetService("ReplicatedStorage")
+			:WaitForChild("NetworkingContainer")
+			:WaitForChild("DataRemote")
+			:FireServer(unpack(args))
 	end)
 
 else
-
 	print("Running system")
 
 	local Queue = {
