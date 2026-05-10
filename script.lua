@@ -3,11 +3,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Player = Players.LocalPlayer
 
--- 🧠 MAX LEVELS
-local MaxLevelTroops = {
-	SpeakerHelicopter = 4,
-}
-
 -- 📡 REMOTE HELPER
 local function fireRemote(args)
 	ReplicatedStorage
@@ -40,73 +35,40 @@ local function startSkipLoop()
 	end)
 end
 
--- 🧠 TRACKED TROOPS
+-- 🧠 TRACKED TROOPS TABLE
 local trackedTroops = {}
 
--- 📦 GET TROOP LEVEL
-local function getTroopLevel(unit)
-	local level = unit:FindFirstChild("TroopLevel")
-
-	if level and level:IsA("IntValue") then
-		return level.Value
-	end
-
-	return 1
-end
-
--- 📦 GET MAX LEVEL
-local function getMaxLevel(unit)
-	return MaxLevelTroops[unit.Name] or 0
-end
-
--- ➕ ADD TROOP
 local function addTroop(unit)
 	if not unit then return end
 	if trackedTroops[unit] then return end
 
-	table.insert(trackedTroops, unit)
+	trackedTroops[unit] = {
+		lastUpgrade = 0
+	}
 end
 
--- ➖ REMOVE TROOP
-local function removeInvalidTroops()
-	for i = #trackedTroops, 1, -1 do
-		local troop = trackedTroops[i]
-
-		if not troop or not troop.Parent then
-			table.remove(trackedTroops, i)
-		end
-	end
+local function removeTroop(unit)
+	trackedTroops[unit] = nil
 end
 
--- ⚡ AUTO UPGRADE SYSTEM
--- only upgrades the OLDEST troop until maxed,
--- then moves onto the next placed troop
+-- ⚡ GLOBAL UPGRADE LOOP (THIS IS THE KEY IDEA)
 task.spawn(function()
 	while true do
-		removeInvalidTroops()
-
-		for i, troop in ipairs(trackedTroops) do
-			if troop and troop.Parent then
-				local currentLevel = getTroopLevel(troop)
-				local maxLevel = getMaxLevel(troop)
-
-				-- only upgrade if not maxed
-				if currentLevel < maxLevel then
+		for unit, data in pairs(trackedTroops) do
+			if unit and unit.Parent then
+				-- simple throttle so it doesn’t spam too hard
+				if tick() - data.lastUpgrade >= 0.15 then
+					data.lastUpgrade = tick()
 
 					fireRemote({
 						{
 							"\226\129\130#",
-							troop
+							unit
 						}
 					})
-
-					-- wait a little before next upgrade
-					task.wait(0.2)
-
-					-- IMPORTANT:
-					-- stop here so this troop gets maxed first
-					break
 				end
+			else
+				trackedTroops[unit] = nil
 			end
 		end
 
@@ -130,20 +92,11 @@ local function handleTask(taskData)
 			}
 		})
 
-		-- 🔥 TRACK NEW TROOP
+		-- 🔥 ADD TO TRACKER AFTER PLACING
 		task.delay(1, function()
-
-			-- find newest troop with matching name
-			local newestTroop
-
-			for _, troop in ipairs(troopsFolder:GetChildren()) do
-				if troop.Name == taskData.name then
-					newestTroop = troop
-				end
-			end
-
-			if newestTroop then
-				addTroop(newestTroop)
+			local unit = troopsFolder:FindFirstChild(taskData.name)
+			if unit then
+				addTroop(unit)
 			end
 		end)
 
@@ -177,11 +130,7 @@ if (not correctPlace) and (not routeExists) then
 				}
 			}
 		}
-
-		game:GetService("ReplicatedStorage")
-			:WaitForChild("NetworkingContainer")
-			:WaitForChild("DataRemote")
-			:FireServer(unpack(args))
+		game:GetService("ReplicatedStorage"):WaitForChild("NetworkingContainer"):WaitForChild("DataRemote"):FireServer(unpack(args))
 	end)
 
 else
@@ -189,14 +138,15 @@ else
 
 	-- 📦 QUEUE
 	local Queue = {
-
 		{delay = 15, name = "SpeakerHelicopter",
 			position = Vector3.new(-77.65982055664062, 2.3456802368164062, 95.55828857421875),
-			extra = 1},
+			extra = 1
+		},
 
 		{delay = 61, name = "SpeakerHelicopter",
 			position = Vector3.new(-69.34246063232422, 2.3456802368164062, 89.49198150634766),
-			extra = 1},
+			extra = 1
+		}
 	}
 
 	-- 🚀 RUN QUEUE
@@ -208,4 +158,6 @@ else
 
 	-- ⏱️ START SKIP LOOP
 	task.delay(20, function()
-		s
+		startSkipLoop()
+	end)
+end
