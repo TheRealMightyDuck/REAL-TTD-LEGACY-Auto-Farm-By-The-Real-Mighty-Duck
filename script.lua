@@ -113,8 +113,15 @@ if (not correctPlace) and (not routeExists) then
 
 	local char = Player.Character or Player.CharacterAdded:Wait()
 	local hrp = char:WaitForChild("HumanoidRootPart")
+
+	hrp.CFrame = CFrame.new(
+		-129.188828, 5.25753736, 131.552063,
+		-0.949930847, 4.12199519e-08, 0.312460154,
+		6.88082764e-08, 1, 7.72679485e-08,
+		-0.312460154, 9.48990575e-08, -0.949930847
+	)
 	
-	task.delay(8, function()
+	task.delay(5, function()
 		local args = {
 			{
 				{
