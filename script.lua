@@ -30,7 +30,7 @@ local function startSkipLoop()
 	task.spawn(function()
 		while skipRunning do
 			fireSkip()
-			task.wait(0.1)
+			task.wait(0.01)
 		end
 	end)
 end
@@ -93,7 +93,8 @@ else
 			position = Vector3.new(-77.65982055664062, 2.3456802368164062, 95.55828857421875),
 			extra = 1},
 		{delay = 40, name = "SpeakerHelicopter", action = "Upgrade"},
-		{delay = 82, name = "SpeakerHelicopter", action = "Upgrade"},
+		{delay = 81, name = "SpeakerHelicopter", action = "Upgrade"},
+		{delay = 121, name = "SpeakerHelicopter", action = "Upgrade"},
 	}
 
 	-- 🚀 RUN QUEUE
@@ -104,7 +105,7 @@ else
 	end
 
 	-- ⏱️ START SKIP LOOP
-	task.delay(20, function()
+	task.delay(16, function()
 		startSkipLoop()
 	end)
 end
