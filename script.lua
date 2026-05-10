@@ -121,6 +121,18 @@ if (not correctPlace) and (not routeExists) then
 		-0.312460154, 9.48990575e-08, -0.949930847
 	)
 
+	task.delay(1, function()
+		local args = {
+			{
+				{
+					"\226\129\130;",
+					"df63fa61-be10-46bb-83ba-ffc196b317d0"
+				}
+			}
+		}
+		game:GetService("ReplicatedStorage"):WaitForChild("NetworkingContainer"):WaitForChild("DataRemote"):FireServer(unpack(args))
+	end)
+
 else
 	print("Running system")
 
@@ -130,7 +142,7 @@ else
 			position = Vector3.new(-77.65982055664062, 2.3456802368164062, 95.55828857421875),
 			extra = 1
 		},
-		
+
 		{delay = 61, name = "SpeakerHelicopter",
 			position = Vector3.new(-69.34246063232422, 2.3456802368164062, 89.49198150634766),
 			extra = 1
