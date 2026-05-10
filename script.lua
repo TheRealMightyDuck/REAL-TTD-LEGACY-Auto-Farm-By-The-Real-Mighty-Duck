@@ -35,6 +35,47 @@ local function startSkipLoop()
 	end)
 end
 
+-- 🧠 TRACKED TROOPS TABLE
+local trackedTroops = {}
+
+local function addTroop(unit)
+	if not unit then return end
+	if trackedTroops[unit] then return end
+
+	trackedTroops[unit] = {
+		lastUpgrade = 0
+	}
+end
+
+local function removeTroop(unit)
+	trackedTroops[unit] = nil
+end
+
+-- ⚡ GLOBAL UPGRADE LOOP (THIS IS THE KEY IDEA)
+task.spawn(function()
+	while true do
+		for unit, data in pairs(trackedTroops) do
+			if unit and unit.Parent then
+				-- simple throttle so it doesn’t spam too hard
+				if tick() - data.lastUpgrade >= 0.15 then
+					data.lastUpgrade = tick()
+
+					fireRemote({
+						{
+							"\226\129\130#",
+							unit
+						}
+					})
+				end
+			else
+				trackedTroops[unit] = nil
+			end
+		end
+
+		task.wait(0.05)
+	end
+end)
+
 -- 🧠 QUEUE HANDLER
 local function handleTask(taskData)
 
@@ -50,20 +91,16 @@ local function handleTask(taskData)
 				taskData.extra
 			}
 		})
+
+		-- 🔥 ADD TO TRACKER AFTER PLACING
+		task.delay(1, function()
+			local unit = troopsFolder:FindFirstChild(taskData.name)
+			if unit then
+				addTroop(unit)
+			end
+		end)
+
 		return
-	end
-
-	-- ⬆️ UPGRADE
-	if taskData.action == "Upgrade" then
-		local unit = troopsFolder:FindFirstChild(taskData.name)
-		if not unit then return end
-
-		fireRemote({
-			{
-				"\226\129\130#",
-				unit
-			}
-		})
 	end
 end
 
@@ -91,10 +128,8 @@ else
 	local Queue = {
 		{delay = 15, name = "SpeakerHelicopter",
 			position = Vector3.new(-77.65982055664062, 2.3456802368164062, 95.55828857421875),
-			extra = 1},
-		{delay = 40, name = "SpeakerHelicopter", action = "Upgrade"},
-		{delay = 81, name = "SpeakerHelicopter", action = "Upgrade"},
-		{delay = 122, name = "SpeakerHelicopter", action = "Upgrade"},
+			extra = 1
+		}
 	}
 
 	-- 🚀 RUN QUEUE
