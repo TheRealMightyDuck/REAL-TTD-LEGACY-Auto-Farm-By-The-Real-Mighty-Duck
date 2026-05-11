@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Player = Players.LocalPlayer
 
--- 📡 REMOTE HELPER
+-- 📡 REMOTE
 local function fireRemote(args)
 	ReplicatedStorage
 		:WaitForChild("NetworkingContainer")
@@ -22,7 +22,6 @@ end
 
 -- 🔁 SKIP LOOP
 local skipRunning = false
-
 local function startSkipLoop()
 	if skipRunning then return end
 	skipRunning = true
@@ -35,25 +34,19 @@ local function startSkipLoop()
 	end)
 end
 
--- 🧠 MAX LEVELS
+-- 🧠 CONFIG
 local MaxLevelTroops = {
 	SpeakerHelicopter = 4,
 }
 
--- 🧠 ORDER SYSTEM
+-- 📦 QUEUE SYSTEM (SAFE)
 local orderedTroops = {}
-local troopIndex = 0
-local currentTroop = 1
-
--- 🔥 TRACK LEVELS
 local troopLevel = {}
 
--- 🐛 DEBUG SETTINGS
 local DEBUG = true
-
 local function log(...)
 	if DEBUG then
-		print("[UPGRADE DEBUG]", ...)
+		print("[DEBUG]", ...)
 	end
 end
 
@@ -61,31 +54,32 @@ end
 local function addTroop(unit)
 	if not unit then return end
 
-	troopIndex += 1
-	orderedTroops[troopIndex] = unit
-
+	table.insert(orderedTroops, unit)
 	troopLevel[unit] = 1
 
-	log("Added troop:", unit.Name, "Index:", troopIndex)
+	log("Added troop:", unit.Name, "Total:", #orderedTroops)
 end
 
--- ⚡ UPGRADE LOOP (FIXED + DEBUG)
+-- ⚡ SAFE UPGRADE LOOP
 task.spawn(function()
+
+	local index = 1
 
 	while true do
 
-		local unit = orderedTroops[currentTroop]
+		local unit = orderedTroops[index]
 
+		-- ❌ NO UNIT
 		if not unit then
-			log("No unit at index:", currentTroop)
-			currentTroop += 1
-			task.wait(0.2)
+			log("No unit at index:", index, "waiting...")
+			task.wait(0.5)
 			continue
 		end
 
+		-- ❌ UNIT GONE
 		if not unit.Parent then
-			log("Unit missing from workspace:", unit.Name)
-			currentTroop += 1
+			log("Unit removed:", unit.Name)
+			index += 1
 			task.wait(0.2)
 			continue
 		end
@@ -94,19 +88,17 @@ task.spawn(function()
 		local maxLevel = MaxLevelTroops[name] or math.huge
 		local level = troopLevel[unit] or 1
 
-		log("Checking unit:", name, "Level:", level, "Max:", maxLevel)
+		log("Checking:", name, "Level:", level, "Max:", maxLevel, "Index:", index)
 
-		-- ✅ DONE
+		-- ✅ MAXED → NEXT UNIT
 		if level >= maxLevel then
-			log("MAXED UNIT:", name)
-			currentTroop += 1
+			log("MAXED:", name)
+			index += 1
 			task.wait(0.5)
 			continue
 		end
 
-		-- 🔼 TRY UPGRADE
-		log("Upgrading:", name, "Current Level:", level)
-
+		-- 🔼 UPGRADE (ONCE PER SECOND)
 		fireRemote({
 			{
 				"\226\129\130#",
@@ -114,18 +106,15 @@ task.spawn(function()
 			}
 		})
 
-		-- ⏱️ wait 1 second between upgrades
-		task.wait(1)
-
-		-- ⚠️ assume success BUT now visible in debug
 		troopLevel[unit] = level + 1
 
-		log("New level:", troopLevel[unit], "for", name)
+		log("Upgraded:", name, "New Level:", troopLevel[unit])
 
+		task.wait(1)
 	end
 end)
 
--- 🧠 QUEUE HANDLER
+-- 🧠 HANDLE TASK
 local function handleTask(taskData)
 
 	local troopsFolder = workspace:WaitForChild("Troops")
@@ -162,7 +151,7 @@ local function handleTask(taskData)
 			end
 
 			if found then
-				log("Found new troop:", found.Name)
+				log("Found troop:", found.Name)
 				addTroop(found)
 			else
 				warn("[DEBUG] FAILED TO FIND TROOP:", taskData.name)
@@ -177,7 +166,7 @@ local routeExists = workspace:FindFirstChild("Route")
 
 if (not correctPlace) and (not routeExists) then
 
-	print("Teleporting")
+	log("Teleporting...")
 
 	local char = Player.Character or Player.CharacterAdded:Wait()
 	local hrp = char:WaitForChild("HumanoidRootPart")
@@ -195,7 +184,7 @@ if (not correctPlace) and (not routeExists) then
 
 else
 
-	print("Running system")
+	log("Running system")
 
 	local Queue = {
 
