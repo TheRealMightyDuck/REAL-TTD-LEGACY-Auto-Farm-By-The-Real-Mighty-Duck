@@ -40,12 +40,12 @@ local MaxLevelTroops = {
 	SpeakerHelicopter = 4,
 }
 
--- 🧠 ORDERED SYSTEM
+-- 🧠 ORDERED TROOP SYSTEM
 local orderedTroops = {}
 local troopIndex = 0
 local currentTroop = 1
 
--- progress tracking
+-- 🔥 LOCAL PROGRESS TRACKER (FIX)
 local troopProgress = {}
 
 local function addTroop(unit)
@@ -53,54 +53,63 @@ local function addTroop(unit)
 
 	troopIndex += 1
 
-	orderedTroops[troopIndex] = unit
+	orderedTroops[troopIndex] = {
+		unit = unit,
+		lastUpgrade = 0
+	}
+
+	-- init progress
 	troopProgress[unit] = 1
 
 	print("Added troop #", troopIndex, unit.Name)
 end
 
--- ⚡ CONSTANT UPGRADE LOOP (FIXED)
+-- ⚡ FIXED ORDERED UPGRADE LOOP
 task.spawn(function()
-
-	local lastFire = 0
 
 	while true do
 
-		local unit = orderedTroops[currentTroop]
+		local data = orderedTroops[currentTroop]
 
-		-- ⛔ skip invalid slots cleanly
-		if not unit or not unit.Parent then
-			currentTroop += 1
-			task.wait(0.05)
-			continue
+		if data then
+			local unit = data.unit
+
+			if unit and unit.Parent then
+
+				local name = unit.Name
+				local maxLevel = MaxLevelTroops[name] or math.huge
+
+				local level = troopProgress[unit] or 1
+
+				-- 🔥 upgrade spam
+				if tick() - data.lastUpgrade >= 0.15 then
+					data.lastUpgrade = tick()
+
+					fireRemote({
+						{
+							"\226\129\130#",
+							unit
+						}
+					})
+
+					-- 💡 assume upgrade succeeds instantly
+					troopProgress[unit] = level + 1
+					level += 1
+				end
+
+				-- ✅ MOVE TO NEXT TROOP WHEN MAXED
+				if level >= maxLevel then
+					print("Maxed troop #", currentTroop, unit.Name)
+					currentTroop += 1
+				end
+
+			else
+				-- fallback if unit disappears
+				currentTroop += 1
+			end
 		end
 
-		local name = unit.Name
-		local maxLevel = MaxLevelTroops[name] or math.huge
-		local level = troopProgress[unit] or 1
-
-		-- 🔥 constant upgrade spam (global throttle, NOT per troop)
-		if tick() - lastFire >= 0.12 then
-			lastFire = tick()
-
-			fireRemote({
-				{
-					"\226\129\130#",
-					unit
-				}
-			})
-
-			troopProgress[unit] = level + 1
-			level += 1
-		end
-
-		-- ✅ move forward when maxed
-		if level >= maxLevel then
-			print("Maxed troop #", currentTroop, name)
-			currentTroop += 1
-		end
-
-		task.wait(0.03)
+		task.wait(0.05)
 	end
 end)
 
@@ -109,6 +118,7 @@ local function handleTask(taskData)
 
 	local troopsFolder = workspace:WaitForChild("Troops")
 
+	-- 📍 PLACE
 	if taskData.position then
 
 		local existing = {}
@@ -126,6 +136,7 @@ local function handleTask(taskData)
 			}
 		})
 
+		-- detect new troop instance
 		task.spawn(function()
 
 			local found
@@ -172,15 +183,19 @@ if (not correctPlace) and (not routeExists) then
 	)
 
 	task.delay(1, function()
-		game:GetService("ReplicatedStorage")
-			:WaitForChild("NetworkingContainer")
-			:WaitForChild("DataRemote")
-			:FireServer({
+		local args = {
+			{
 				{
 					"\226\129\130;",
 					"df63fa61-be10-46bb-83ba-ffc196b317d0"
 				}
-			})
+			}
+		}
+
+		game:GetService("ReplicatedStorage")
+			:WaitForChild("NetworkingContainer")
+			:WaitForChild("DataRemote")
+			:FireServer(unpack(args))
 	end)
 
 else
