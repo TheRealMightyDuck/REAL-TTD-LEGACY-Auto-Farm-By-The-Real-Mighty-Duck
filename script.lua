@@ -30,7 +30,7 @@ local function startSkipLoop()
 	task.spawn(function()
 		while skipRunning do
 			fireSkip()
-			task.wait(0.01)
+			task.wait(0.2) -- fixed spam issue
 		end
 	end)
 end
@@ -45,7 +45,7 @@ local orderedTroops = {}
 local troopIndex = 0
 local currentTroop = 1
 
--- 🔥 LOCAL PROGRESS TRACKER (FIX)
+-- 🔥 SAFE PROGRESS TRACKING
 local troopProgress = {}
 
 local function addTroop(unit)
@@ -58,58 +58,63 @@ local function addTroop(unit)
 		lastUpgrade = 0
 	}
 
-	-- init progress
-	troopProgress[unit] = 1
+	local id = unit:GetDebugId()
+	troopProgress[id] = 1
 
 	print("Added troop #", troopIndex, unit.Name)
 end
 
--- ⚡ FIXED ORDERED UPGRADE LOOP
+-- ⚡ ORDERED UPGRADE LOOP (FIXED)
 task.spawn(function()
 
 	while true do
 
 		local data = orderedTroops[currentTroop]
 
-		if data then
-			local unit = data.unit
-
-			if unit and unit.Parent then
-
-				local name = unit.Name
-				local maxLevel = MaxLevelTroops[name] or math.huge
-
-				local level = troopProgress[unit] or 1
-
-				-- 🔥 upgrade spam
-				if tick() - data.lastUpgrade >= 0.15 then
-					data.lastUpgrade = tick()
-
-					fireRemote({
-						{
-							"\226\129\130#",
-							unit
-						}
-					})
-
-					-- 💡 assume upgrade succeeds instantly
-					troopProgress[unit] = level + 1
-					level += 1
-				end
-
-				-- ✅ MOVE TO NEXT TROOP WHEN MAXED
-				if level >= maxLevel then
-					print("Maxed troop #", currentTroop, unit.Name)
-					currentTroop += 1
-				end
-
-			else
-				-- fallback if unit disappears
-				currentTroop += 1
-			end
+		if not data then
+			task.wait(0.1)
+			continue
 		end
 
-		task.wait(0.05)
+		local unit = data.unit
+
+		if not unit or not unit.Parent then
+			currentTroop += 1
+			task.wait(0.1)
+			continue
+		end
+
+		local name = unit.Name
+		local maxLevel = MaxLevelTroops[name] or math.huge
+
+		local id = unit:GetDebugId()
+		troopProgress[id] = troopProgress[id] or 1
+
+		local level = troopProgress[id]
+
+		-- 🔥 upgrade attempt cooldown
+		if tick() - data.lastUpgrade >= 0.25 then
+			data.lastUpgrade = tick()
+
+			fireRemote({
+				{
+					"\226\129\130#",
+					unit
+				}
+			})
+
+			-- assume success (your original behavior, but safer now)
+			troopProgress[id] = level + 1
+			level += 1
+		end
+
+		-- ✅ move to next troop when maxed
+		if level >= maxLevel then
+			print("Maxed troop #", currentTroop, unit.Name)
+			currentTroop += 1
+		end
+
+		task.wait(0.1)
 	end
 end)
 
@@ -183,19 +188,12 @@ if (not correctPlace) and (not routeExists) then
 	)
 
 	task.delay(1, function()
-		local args = {
+		fireRemote({
 			{
-				{
-					"\226\129\130;",
-					"df63fa61-be10-46bb-83ba-ffc196b317d0"
-				}
+				"\226\129\130;",
+				"df63fa61-be10-46bb-83ba-ffc196b317d0"
 			}
-		}
-
-		game:GetService("ReplicatedStorage")
-			:WaitForChild("NetworkingContainer")
-			:WaitForChild("DataRemote")
-			:FireServer(unpack(args))
+		})
 	end)
 
 else
