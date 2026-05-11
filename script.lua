@@ -40,14 +40,15 @@ local MaxLevelTroops = {
 	SpeakerHelicopter = 4,
 }
 
--- 🧠 ORDERED SYSTEM
+-- 🧠 ORDER SYSTEM
 local orderedTroops = {}
 local troopIndex = 0
 local currentTroop = 1
 
--- 🔥 PROGRESS TRACKER
+-- 📊 PROGRESS TRACKER
 local troopProgress = {}
 
+-- 📌 GET LEVEL SAFELY
 local function getUnitLevel(unit, id)
 	local attr = unit:GetAttribute("Level")
 	if typeof(attr) == "number" then
@@ -62,6 +63,7 @@ local function getUnitLevel(unit, id)
 	return troopProgress[id] or 1
 end
 
+-- ➕ ADD TROOP
 local function addTroop(unit)
 	if not unit then return end
 
@@ -72,28 +74,31 @@ local function addTroop(unit)
 		lastUpgrade = 0
 	}
 
-	local id = unit:GetDebugId()
-	troopProgress[id] = 1
+	troopProgress[unit:GetDebugId()] = 1
 
 	print("Added troop #", troopIndex, unit.Name)
 end
 
--- ⚡ MAIN UPGRADE LOOP
+-- ⚡ MAIN UPGRADE LOOP (FIXED PROGRESSION LOGIC)
 task.spawn(function()
 
 	while true do
 
 		local data = orderedTroops[currentTroop]
 
+		-- 🚨 no entry → force move
 		if not data then
-			task.wait(0.1)
+			currentTroop += 1
+			task.wait(0.05)
 			continue
 		end
 
 		local unit = data.unit
 
+		-- 🚨 invalid unit → skip instantly
 		if not unit or not unit.Parent then
 			currentTroop += 1
+			task.wait(0.05)
 			continue
 		end
 
@@ -101,17 +106,17 @@ task.spawn(function()
 		local maxLevel = MaxLevelTroops[name] or math.huge
 
 		local id = unit:GetDebugId()
-
 		local level = getUnitLevel(unit, id)
 
-		-- 🟢 already maxed → move on
+		-- 🟢 finished → IMMEDIATE NEXT (no waiting, no cooldown)
 		if level >= maxLevel then
-			print("Maxed:", unit.Name)
+			print("Finished troop:", unit.Name, "→ moving on")
 			currentTroop += 1
+			task.wait(0.05)
 			continue
 		end
 
-		-- ⏱ cooldown
+		-- ⏱ upgrade cooldown
 		if tick() - data.lastUpgrade >= 0.25 then
 			data.lastUpgrade = tick()
 
@@ -128,11 +133,10 @@ task.spawn(function()
 
 			local after = getUnitLevel(unit, id)
 
+			-- ✅ only accept real upgrades
 			if after > before then
 				troopProgress[id] = after
 				print("Upgraded:", unit.Name, after)
-			else
-				print("Retrying:", unit.Name)
 			end
 		end
 
