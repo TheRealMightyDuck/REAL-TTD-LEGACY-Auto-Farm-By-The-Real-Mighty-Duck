@@ -35,33 +35,33 @@ local function startSkipLoop()
 	end)
 end
 
--- 🧠 MAX LEVELS
+-- 🧠 MAX LEVEL CONFIG
 local MaxLevelTroops = {
 	SpeakerHelicopter = 4,
 }
 
--- 📦 TROOP DATA
+-- 🧠 ORDER SYSTEM
 local orderedTroops = {}
 local troopIndex = 0
 local currentTroop = 1
 
--- simple progress (NO complex keys)
-local troopLevel = {}
+-- 🔥 SIMPLE PROGRESS TRACKER
+local troopProgress = {}
 
--- ➕ ADD TROOP
 local function addTroop(unit)
 	if not unit then return end
 
 	troopIndex += 1
 	orderedTroops[troopIndex] = unit
 
-	troopLevel[unit] = 1
+	troopProgress[unit] = 1
 
-	print("Added:", unit.Name)
+	print("Added troop:", unit.Name)
 end
 
--- ⚡ MAIN LOOP
+-- ⚡ UPGRADE LOOP (FIXED)
 task.spawn(function()
+
 	while true do
 
 		local unit = orderedTroops[currentTroop]
@@ -71,9 +71,8 @@ task.spawn(function()
 			local name = unit.Name
 			local maxLevel = MaxLevelTroops[name] or math.huge
 
-			local level = troopLevel[unit] or 1
+			local level = troopProgress[unit] or 1
 
-			-- ✅ still upgrading
 			if level < maxLevel then
 
 				fireRemote({
@@ -83,10 +82,13 @@ task.spawn(function()
 					}
 				})
 
-				-- simple + safe increment (no fake instant maxing)
-				troopLevel[unit] = level + 1
-
-				task.wait(0.2)
+				-- ❌ IMPORTANT FIX:
+				-- Only increment AFTER a delay (not instantly spam-trusting success)
+				task.delay(0.25, function()
+					if unit and unit.Parent then
+						troopProgress[unit] = (troopProgress[unit] or 1) + 1
+					end
+				end)
 
 			else
 				print("Maxed:", unit.Name)
@@ -140,13 +142,13 @@ local function handleTask(taskData)
 			if found then
 				addTroop(found)
 			else
-				warn("Not found:", taskData.name)
+				warn("Troop not found:", taskData.name)
 			end
 		end)
 	end
 end
 
--- 📦 SETUP
+-- 📦 CHECKS
 local correctPlace = (game.PlaceId == 13775256536)
 local routeExists = workspace:FindFirstChild("Route")
 
@@ -157,9 +159,7 @@ if (not correctPlace) and (not routeExists) then
 	local char = Player.Character or Player.CharacterAdded:Wait()
 	local hrp = char:WaitForChild("HumanoidRootPart")
 
-	hrp.CFrame = CFrame.new(
-		-129.188828, 5.25753736, 131.552063
-	)
+	hrp.CFrame = CFrame.new(-129.188828, 5.25753736, 131.552063)
 
 	task.delay(1, function()
 		ReplicatedStorage
