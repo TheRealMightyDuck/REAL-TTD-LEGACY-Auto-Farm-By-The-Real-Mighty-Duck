@@ -30,7 +30,7 @@ local function startSkipLoop()
 	task.spawn(function()
 		while skipRunning do
 			fireSkip()
-			task.wait(0.2) -- fixed spam issue
+			task.wait(0.2)
 		end
 	end)
 end
@@ -40,13 +40,27 @@ local MaxLevelTroops = {
 	SpeakerHelicopter = 4,
 }
 
--- 🧠 ORDERED TROOP SYSTEM
+-- 🧠 ORDERED SYSTEM
 local orderedTroops = {}
 local troopIndex = 0
 local currentTroop = 1
 
--- 🔥 SAFE PROGRESS TRACKING
+-- 🔥 PROGRESS TRACKER
 local troopProgress = {}
+
+local function getUnitLevel(unit, id)
+	local attr = unit:GetAttribute("Level")
+	if typeof(attr) == "number" then
+		return attr
+	end
+
+	local lvl = unit:FindFirstChild("Level")
+	if lvl and lvl:IsA("IntValue") then
+		return lvl.Value
+	end
+
+	return troopProgress[id] or 1
+end
 
 local function addTroop(unit)
 	if not unit then return end
@@ -64,7 +78,7 @@ local function addTroop(unit)
 	print("Added troop #", troopIndex, unit.Name)
 end
 
--- ⚡ ORDERED UPGRADE LOOP (FIXED)
+-- ⚡ MAIN UPGRADE LOOP
 task.spawn(function()
 
 	while true do
@@ -80,7 +94,6 @@ task.spawn(function()
 
 		if not unit or not unit.Parent then
 			currentTroop += 1
-			task.wait(0.1)
 			continue
 		end
 
@@ -88,13 +101,21 @@ task.spawn(function()
 		local maxLevel = MaxLevelTroops[name] or math.huge
 
 		local id = unit:GetDebugId()
-		troopProgress[id] = troopProgress[id] or 1
 
-		local level = troopProgress[id]
+		local level = getUnitLevel(unit, id)
 
-		-- 🔥 upgrade attempt cooldown
+		-- 🟢 already maxed → move on
+		if level >= maxLevel then
+			print("Maxed:", unit.Name)
+			currentTroop += 1
+			continue
+		end
+
+		-- ⏱ cooldown
 		if tick() - data.lastUpgrade >= 0.25 then
 			data.lastUpgrade = tick()
+
+			local before = getUnitLevel(unit, id)
 
 			fireRemote({
 				{
@@ -103,15 +124,16 @@ task.spawn(function()
 				}
 			})
 
-			-- assume success (your original behavior, but safer now)
-			troopProgress[id] = level + 1
-			level += 1
-		end
+			task.wait(0.15)
 
-		-- ✅ move to next troop when maxed
-		if level >= maxLevel then
-			print("Maxed troop #", currentTroop, unit.Name)
-			currentTroop += 1
+			local after = getUnitLevel(unit, id)
+
+			if after > before then
+				troopProgress[id] = after
+				print("Upgraded:", unit.Name, after)
+			else
+				print("Retrying:", unit.Name)
+			end
 		end
 
 		task.wait(0.1)
@@ -123,7 +145,6 @@ local function handleTask(taskData)
 
 	local troopsFolder = workspace:WaitForChild("Troops")
 
-	-- 📍 PLACE
 	if taskData.position then
 
 		local existing = {}
@@ -141,7 +162,6 @@ local function handleTask(taskData)
 			}
 		})
 
-		-- detect new troop instance
 		task.spawn(function()
 
 			local found
