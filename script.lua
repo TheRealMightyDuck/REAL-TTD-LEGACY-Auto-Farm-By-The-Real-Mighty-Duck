@@ -35,7 +35,7 @@ local function startSkipLoop()
 	end)
 end
 
--- 🧠 MAX LEVEL CONFIG
+-- 🧠 MAX LEVELS
 local MaxLevelTroops = {
 	SpeakerHelicopter = 4,
 }
@@ -45,21 +45,22 @@ local orderedTroops = {}
 local troopIndex = 0
 local currentTroop = 1
 
--- 🔥 SIMPLE PROGRESS TRACKER
-local troopProgress = {}
+-- 🔥 TRACK LEVELS (simple)
+local troopLevel = {}
 
+-- ➕ ADD TROOP
 local function addTroop(unit)
 	if not unit then return end
 
 	troopIndex += 1
 	orderedTroops[troopIndex] = unit
 
-	troopProgress[unit] = 1
+	troopLevel[unit] = 1
 
 	print("Added troop:", unit.Name)
 end
 
--- ⚡ UPGRADE LOOP (FIXED)
+-- ⚡ UPGRADE LOOP (FIXED + 1 SECOND COOLDOWN)
 task.spawn(function()
 
 	while true do
@@ -71,7 +72,7 @@ task.spawn(function()
 			local name = unit.Name
 			local maxLevel = MaxLevelTroops[name] or math.huge
 
-			local level = troopProgress[unit] or 1
+			local level = troopLevel[unit] or 1
 
 			if level < maxLevel then
 
@@ -82,13 +83,11 @@ task.spawn(function()
 					}
 				})
 
-				-- ❌ IMPORTANT FIX:
-				-- Only increment AFTER a delay (not instantly spam-trusting success)
-				task.delay(0.25, function()
-					if unit and unit.Parent then
-						troopProgress[unit] = (troopProgress[unit] or 1) + 1
-					end
-				end)
+				-- ⏱️ upgrade once per second ONLY
+				task.wait(1)
+
+				-- ⚠️ still assuming success (no server feedback available)
+				troopLevel[unit] = level + 1
 
 			else
 				print("Maxed:", unit.Name)
@@ -97,9 +96,9 @@ task.spawn(function()
 
 		else
 			currentTroop += 1
+			task.wait(0.2)
 		end
 
-		task.wait(0.1)
 	end
 end)
 
