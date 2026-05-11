@@ -229,3 +229,6 @@ else
 		startSkipLoop()
 	end)
 end
+
+warn("Credits To mightyducklingking!"
+warn("Join The Discord!")
