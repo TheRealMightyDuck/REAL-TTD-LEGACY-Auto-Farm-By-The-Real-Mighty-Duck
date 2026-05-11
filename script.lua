@@ -30,93 +30,74 @@ local function startSkipLoop()
 	task.spawn(function()
 		while skipRunning do
 			fireSkip()
-			task.wait(0.01)
+			task.wait(0.05)
 		end
 	end)
 end
 
--- 🧠 MAX LEVEL CONFIG
+-- 🧠 MAX LEVELS
 local MaxLevelTroops = {
 	SpeakerHelicopter = 4,
 }
 
--- 🧠 ORDERED SYSTEM
+-- 📦 TROOP DATA
 local orderedTroops = {}
 local troopIndex = 0
 local currentTroop = 1
 
--- 🔥 STABLE PROGRESS TRACKER
-local troopProgress = {} -- [unitId] = level
+-- simple progress (NO complex keys)
+local troopLevel = {}
 
-local function getKey(unit)
-	return unit:GetDebugId()
-end
-
+-- ➕ ADD TROOP
 local function addTroop(unit)
 	if not unit then return end
 
 	troopIndex += 1
+	orderedTroops[troopIndex] = unit
 
-	orderedTroops[troopIndex] = {
-		unit = unit,
-		lastUpgrade = 0
-	}
+	troopLevel[unit] = 1
 
-	troopProgress[getKey(unit)] = 1
-
-	print("Added troop #", troopIndex, unit.Name)
+	print("Added:", unit.Name)
 end
 
--- ⚡ UPGRADE LOOP
+-- ⚡ MAIN LOOP
 task.spawn(function()
 	while true do
 
-		local data = orderedTroops[currentTroop]
+		local unit = orderedTroops[currentTroop]
 
-		if data then
-			local unit = data.unit
+		if unit and unit.Parent then
 
-			if unit and unit.Parent then
+			local name = unit.Name
+			local maxLevel = MaxLevelTroops[name] or math.huge
 
-				local name = unit.Name
-				local maxLevel = MaxLevelTroops[name] or math.huge
-				local key = getKey(unit)
+			local level = troopLevel[unit] or 1
 
-				local level = troopProgress[key] or 1
+			-- ✅ still upgrading
+			if level < maxLevel then
 
-				-- 🔥 upgrade spam (controlled)
-				if level < maxLevel then
+				fireRemote({
+					{
+						"\226\129\130#",
+						unit
+					}
+				})
 
-					if tick() - data.lastUpgrade >= 0.15 then
-						data.lastUpgrade = tick()
+				-- simple + safe increment (no fake instant maxing)
+				troopLevel[unit] = level + 1
 
-						fireRemote({
-							{
-								"\226\129\130#",
-								unit
-							}
-						})
-
-						-- ⚠️ DO NOT assume upgrade success blindly
-						-- we only increment after small delay + validity check
-						task.delay(0.1, function()
-							if unit and unit.Parent then
-								troopProgress[key] = (troopProgress[key] or 1) + 1
-							end
-						end)
-					end
-
-				else
-					print("Maxed troop #", currentTroop, unit.Name)
-					currentTroop += 1
-				end
+				task.wait(0.2)
 
 			else
+				print("Maxed:", unit.Name)
 				currentTroop += 1
 			end
+
+		else
+			currentTroop += 1
 		end
 
-		task.wait(0.05)
+		task.wait(0.1)
 	end
 end)
 
@@ -127,11 +108,7 @@ local function handleTask(taskData)
 
 	if taskData.position then
 
-		local existing = {}
-
-		for _, t in ipairs(troopsFolder:GetChildren()) do
-			existing[t] = true
-		end
+		local before = troopsFolder:GetChildren()
 
 		fireRemote({
 			{
@@ -150,7 +127,7 @@ local function handleTask(taskData)
 			while tick() - start < 5 do
 
 				for _, t in ipairs(troopsFolder:GetChildren()) do
-					if t.Name == taskData.name and not existing[t] then
+					if t.Name == taskData.name and not table.find(before, t) then
 						found = t
 						break
 					end
@@ -163,18 +140,15 @@ local function handleTask(taskData)
 			if found then
 				addTroop(found)
 			else
-				warn("Troop not found:", taskData.name)
+				warn("Not found:", taskData.name)
 			end
 		end)
 	end
 end
 
--- 📦 CHECKS
+-- 📦 SETUP
 local correctPlace = (game.PlaceId == 13775256536)
 local routeExists = workspace:FindFirstChild("Route")
-
-warn("Credits To mightyducklingking!")
-warn("Join The Discord!")
 
 if (not correctPlace) and (not routeExists) then
 
@@ -184,14 +158,11 @@ if (not correctPlace) and (not routeExists) then
 	local hrp = char:WaitForChild("HumanoidRootPart")
 
 	hrp.CFrame = CFrame.new(
-		-129.188828, 5.25753736, 131.552063,
-		-0.949930847, 4.12199519e-08, 0.312460154,
-		6.88082764e-08, 1, 7.72679485e-08,
-		-0.312460154, 9.48990575e-08, -0.949930847
+		-129.188828, 5.25753736, 131.552063
 	)
 
 	task.delay(1, function()
-		game:GetService("ReplicatedStorage")
+		ReplicatedStorage
 			:WaitForChild("NetworkingContainer")
 			:WaitForChild("DataRemote")
 			:FireServer({
@@ -233,3 +204,6 @@ else
 		startSkipLoop()
 	end)
 end
+
+warn("Credits To mightyducklingking!")
+warn("Join The Discord!")
