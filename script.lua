@@ -45,8 +45,17 @@ local orderedTroops = {}
 local troopIndex = 0
 local currentTroop = 1
 
--- 🔥 TRACK LEVELS (simple)
+-- 🔥 TRACK LEVELS
 local troopLevel = {}
+
+-- 🐛 DEBUG SETTINGS
+local DEBUG = true
+
+local function log(...)
+	if DEBUG then
+		print("[UPGRADE DEBUG]", ...)
+	end
+end
 
 -- ➕ ADD TROOP
 local function addTroop(unit)
@@ -57,47 +66,61 @@ local function addTroop(unit)
 
 	troopLevel[unit] = 1
 
-	print("Added troop:", unit.Name)
+	log("Added troop:", unit.Name, "Index:", troopIndex)
 end
 
--- ⚡ UPGRADE LOOP (FIXED + 1 SECOND COOLDOWN)
+-- ⚡ UPGRADE LOOP (FIXED + DEBUG)
 task.spawn(function()
 
 	while true do
 
 		local unit = orderedTroops[currentTroop]
 
-		if unit and unit.Parent then
-
-			local name = unit.Name
-			local maxLevel = MaxLevelTroops[name] or math.huge
-
-			local level = troopLevel[unit] or 1
-
-			if level < maxLevel then
-
-				fireRemote({
-					{
-						"\226\129\130#",
-						unit
-					}
-				})
-
-				-- ⏱️ upgrade once per second ONLY
-				task.wait(1)
-
-				-- ⚠️ still assuming success (no server feedback available)
-				troopLevel[unit] = level + 1
-
-			else
-				print("Maxed:", unit.Name)
-				currentTroop += 1
-			end
-
-		else
+		if not unit then
+			log("No unit at index:", currentTroop)
 			currentTroop += 1
 			task.wait(0.2)
+			continue
 		end
+
+		if not unit.Parent then
+			log("Unit missing from workspace:", unit.Name)
+			currentTroop += 1
+			task.wait(0.2)
+			continue
+		end
+
+		local name = unit.Name
+		local maxLevel = MaxLevelTroops[name] or math.huge
+		local level = troopLevel[unit] or 1
+
+		log("Checking unit:", name, "Level:", level, "Max:", maxLevel)
+
+		-- ✅ DONE
+		if level >= maxLevel then
+			log("MAXED UNIT:", name)
+			currentTroop += 1
+			task.wait(0.5)
+			continue
+		end
+
+		-- 🔼 TRY UPGRADE
+		log("Upgrading:", name, "Current Level:", level)
+
+		fireRemote({
+			{
+				"\226\129\130#",
+				unit
+			}
+		})
+
+		-- ⏱️ wait 1 second between upgrades
+		task.wait(1)
+
+		-- ⚠️ assume success BUT now visible in debug
+		troopLevel[unit] = level + 1
+
+		log("New level:", troopLevel[unit], "for", name)
 
 	end
 end)
@@ -139,9 +162,10 @@ local function handleTask(taskData)
 			end
 
 			if found then
+				log("Found new troop:", found.Name)
 				addTroop(found)
 			else
-				warn("Troop not found:", taskData.name)
+				warn("[DEBUG] FAILED TO FIND TROOP:", taskData.name)
 			end
 		end)
 	end
@@ -161,15 +185,12 @@ if (not correctPlace) and (not routeExists) then
 	hrp.CFrame = CFrame.new(-129.188828, 5.25753736, 131.552063)
 
 	task.delay(1, function()
-		ReplicatedStorage
-			:WaitForChild("NetworkingContainer")
-			:WaitForChild("DataRemote")
-			:FireServer({
-				{
-					"\226\129\130;",
-					"df63fa61-be10-46bb-83ba-ffc196b317d0"
-				}
-			})
+		fireRemote({
+			{
+				"\226\129\130;",
+				"df63fa61-be10-46bb-83ba-ffc196b317d0"
+			}
+		})
 	end)
 
 else
