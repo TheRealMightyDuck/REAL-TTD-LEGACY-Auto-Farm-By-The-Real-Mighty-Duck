@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Player = Players.LocalPlayer
 
--- 📡 REMOTE
+-- 📡 REMOTE HELPER
 local function fireRemote(args)
 	ReplicatedStorage
 		:WaitForChild("NetworkingContainer")
@@ -22,6 +22,7 @@ end
 
 -- 🔁 SKIP LOOP
 local skipRunning = false
+
 local function startSkipLoop()
 	if skipRunning then return end
 	skipRunning = true
@@ -29,99 +30,102 @@ local function startSkipLoop()
 	task.spawn(function()
 		while skipRunning do
 			fireSkip()
-			task.wait(0.05)
+			task.wait(0.01)
 		end
 	end)
 end
 
--- 🧠 CONFIG
+-- 🧠 MAX LEVEL CONFIG
 local MaxLevelTroops = {
 	SpeakerHelicopter = 4,
 }
 
--- 📦 QUEUE SYSTEM (SAFE)
+-- 🧠 ORDERED TROOP SYSTEM
 local orderedTroops = {}
-local troopLevel = {}
+local troopIndex = 0
+local currentTroop = 1
 
-local DEBUG = true
-local function log(...)
-	if DEBUG then
-		print("[DEBUG]", ...)
-	end
-end
+-- 🔥 LOCAL PROGRESS TRACKER (FIX)
+local troopProgress = {}
 
--- ➕ ADD TROOP
 local function addTroop(unit)
 	if not unit then return end
 
-	table.insert(orderedTroops, unit)
-	troopLevel[unit] = 1
+	troopIndex += 1
 
-	log("Added troop:", unit.Name, "Total:", #orderedTroops)
+	orderedTroops[troopIndex] = {
+		unit = unit,
+		lastUpgrade = 0
+	}
+
+	-- init progress
+	troopProgress[unit] = 1
+
+	print("Added troop #", troopIndex, unit.Name)
 end
 
--- ⚡ SAFE UPGRADE LOOP
+-- ⚡ FIXED ORDERED UPGRADE LOOP
 task.spawn(function()
-
-	local index = 1
 
 	while true do
 
-		local unit = orderedTroops[index]
+		local data = orderedTroops[currentTroop]
 
-		-- ❌ NO UNIT
-		if not unit then
-			log("No unit at index:", index, "waiting...")
-			task.wait(0.5)
-			continue
+		if data then
+			local unit = data.unit
+
+			if unit and unit.Parent then
+
+				local name = unit.Name
+				local maxLevel = MaxLevelTroops[name] or math.huge
+
+				local level = troopProgress[unit] or 1
+
+				-- 🔥 upgrade spam
+				if tick() - data.lastUpgrade >= 0.15 then
+					data.lastUpgrade = tick()
+
+					fireRemote({
+						{
+							"\226\129\130#",
+							unit
+						}
+					})
+
+					-- 💡 assume upgrade succeeds instantly
+					troopProgress[unit] = level + 1
+					level += 1
+				end
+
+				-- ✅ MOVE TO NEXT TROOP WHEN MAXED
+				if level >= maxLevel then
+					print("Maxed troop #", currentTroop, unit.Name)
+					currentTroop += 1
+				end
+
+			else
+				-- fallback if unit disappears
+				currentTroop += 1
+			end
 		end
 
-		-- ❌ UNIT GONE
-		if not unit.Parent then
-			log("Unit removed:", unit.Name)
-			index += 1
-			task.wait(0.2)
-			continue
-		end
-
-		local name = unit.Name
-		local maxLevel = MaxLevelTroops[name] or math.huge
-		local level = troopLevel[unit] or 1
-
-		log("Checking:", name, "Level:", level, "Max:", maxLevel, "Index:", index)
-
-		-- ✅ MAXED → NEXT UNIT
-		if level >= maxLevel then
-			log("MAXED:", name)
-			index += 1
-			task.wait(0.5)
-			continue
-		end
-
-		-- 🔼 UPGRADE (ONCE PER SECOND)
-		fireRemote({
-			{
-				"\226\129\130#",
-				unit
-			}
-		})
-
-		troopLevel[unit] = level + 1
-
-		log("Upgraded:", name, "New Level:", troopLevel[unit])
-
-		task.wait(1)
+		task.wait(0.05)
 	end
 end)
 
--- 🧠 HANDLE TASK
+-- 🧠 QUEUE HANDLER
 local function handleTask(taskData)
 
 	local troopsFolder = workspace:WaitForChild("Troops")
 
+	-- 📍 PLACE
 	if taskData.position then
 
-		local before = troopsFolder:GetChildren()
+		local existing = {}
+
+		for _, t in ipairs(troopsFolder:GetChildren()) do
+			existing[t] = true
+		end
 
 		fireRemote({
 			{
@@ -132,6 +136,7 @@ local function handleTask(taskData)
 			}
 		})
 
+		-- detect new troop instance
 		task.spawn(function()
 
 			local found
@@ -140,7 +145,7 @@ local function handleTask(taskData)
 			while tick() - start < 5 do
 
 				for _, t in ipairs(troopsFolder:GetChildren()) do
-					if t.Name == taskData.name and not table.find(before, t) then
+					if t.Name == taskData.name and not existing[t] then
 						found = t
 						break
 					end
@@ -151,10 +156,9 @@ local function handleTask(taskData)
 			end
 
 			if found then
-				log("Found troop:", found.Name)
 				addTroop(found)
 			else
-				warn("[DEBUG] FAILED TO FIND TROOP:", taskData.name)
+				warn("Troop not found:", taskData.name)
 			end
 		end)
 	end
@@ -166,25 +170,37 @@ local routeExists = workspace:FindFirstChild("Route")
 
 if (not correctPlace) and (not routeExists) then
 
-	log("Teleporting...")
+	print("Teleporting")
 
 	local char = Player.Character or Player.CharacterAdded:Wait()
 	local hrp = char:WaitForChild("HumanoidRootPart")
 
-	hrp.CFrame = CFrame.new(-129.188828, 5.25753736, 131.552063)
+	hrp.CFrame = CFrame.new(
+		-129.188828, 5.25753736, 131.552063,
+		-0.949930847, 4.12199519e-08, 0.312460154,
+		6.88082764e-08, 1, 7.72679485e-08,
+		-0.312460154, 9.48990575e-08, -0.949930847
+	)
 
 	task.delay(1, function()
-		fireRemote({
+		local args = {
 			{
-				"\226\129\130;",
-				"df63fa61-be10-46bb-83ba-ffc196b317d0"
+				{
+					"\226\129\130;",
+					"df63fa61-be10-46bb-83ba-ffc196b317d0"
+				}
 			}
-		})
+		}
+
+		game:GetService("ReplicatedStorage")
+			:WaitForChild("NetworkingContainer")
+			:WaitForChild("DataRemote")
+			:FireServer(unpack(args))
 	end)
 
 else
 
-	log("Running system")
+	print("Running system")
 
 	local Queue = {
 
@@ -213,6 +229,3 @@ else
 		startSkipLoop()
 	end)
 end
-
-warn("Credits To mightyducklingking!")
-warn("Join The Discord!")
